@@ -1,0 +1,43 @@
+[project]
+name = "agentic-chatbot"
+version = "0.1.0"
+description = "A backend-focused agentic chatbot built with LangGraph and Google Gemini."
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "langchain>=1.4.0,<2.0.0",
+    "langchain-core>=1.0.0,<2.0.0",
+    "langchain-google-genai>=4.4.0,<5.0.0",
+    "langgraph>=1.2.11,<2.0.0",
+    "python-dotenv>=1.2.1,<2.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16,<2.0", # checks type annotations.
+    "pytest>=8.0,<10.0", # run automated tests
+    "ruff>=0.12,<1.0", # checks formatting, imports, and common Python mistakes.
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+
+# E = pycodestyle errors
+# F = Pyflakes errors (unused imports, undefined variables, etc.)
+# I = import sorting
+# UP = pyupgrade (modern Python syntax)
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.14"
+files = ["src", "tests"]
+warn_unused_configs = true
+check_untyped_defs = true
+no_implicit_optional = true
