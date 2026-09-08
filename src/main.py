@@ -1,81 +1,30 @@
-from langgraph.graph import StateGraph, START, END
-from langchain_core.messages import BaseMessage, HumanMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.graph.message import add_messages
-
-# checkpointing to store messages
-from langgraph.checkpoint.memory import MemorySaver
+"""
+    Interactive command-line entry point for the chatbot.
+"""
 
 from dotenv import load_dotenv
-from typing import TypedDict, Annotated
-import os
+from langchain_core.messages import HumanMessage
 
-load_dotenv()
-
-"""
-    intialise llm
-    model gemini-3.6-flash
-"""
-llm = ChatGoogleGenerativeAI(
-    model="gemini-3.6-flash",
-    api_key=os.getenv("GEMINI_API_KEY")
-)
-
-#make state schema
-class ChatState(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]
-
-#make graph with state schema
-graph = StateGraph(ChatState)
+from chatbot import ChatState, build_chatbot
+from model_factory import create_chat_model
 
 
-def chat_node(state: ChatState):
-    message = state["messages"]
+def main() -> None:
+    load_dotenv()
+    chatbot = build_chatbot(create_chat_model())
+    conversation_id = "1"
 
-    res = llm.invoke(message)
+    while True:
+        user_input = input("Type here: ").strip()
+        if user_input.lower() in {"exit", "quit", "bye"}:
+            break
 
-    return {
-        "messages": [res]
-    }
+        state: ChatState = {"messages": [HumanMessage(content=user_input)]}
+        config = {"configurable": {"thread_id": conversation_id}}
+        final_state = chatbot.invoke(state, config=config)
 
-graph.add_node("chat_node", chat_node)
-
-#add edges
-graph.add_edge(START, "chat_node")
-graph.add_edge("chat_node", END)
-
-checkpoint = MemorySaver()
-
-chatbot = graph.compile(checkpointer= checkpoint)
-
-initial_state: ChatState = {
-    "messages" : [HumanMessage(content = "What is langgraph in 10 words")]
-}
-
-conv_id =1
-
-while True:
-    input_message = input("Type here: ")
-
-    print("User: ", input_message , "\n")
-
-    if input_message.strip().lower() in ["exit", "quit", "bye"]:
-        break
-
-    config = {
-        'configurable':{
-            "thread_id":conv_id
-        }
-    }
+        print(f"AI: {final_state['messages'][-1].text}")
 
 
-
-    initial_state["messages"] = [HumanMessage(content= input_message)]
-    final_state = chatbot.invoke(initial_state, config= config)
-
-    print("AI: ",final_state['messages'][-1].content[0]["text"])
-
-
-
-
-
+if __name__ == "__main__":
+    main()
