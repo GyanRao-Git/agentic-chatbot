@@ -2,6 +2,8 @@
     Interactive command-line entry point for the chatbot.
 """
 
+from uuid import uuid4
+
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 
@@ -12,7 +14,7 @@ from model_factory import create_chat_model
 def main() -> None:
     load_dotenv()
     chatbot = build_chatbot(create_chat_model())
-    conversation_id = "1"
+    conversation_id = str(uuid4())
 
     while True:
         user_input = input("Type here: ").strip()
