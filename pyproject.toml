@@ -37,6 +37,11 @@ target-version = "py314"
 # UP = pyupgrade (modern Python syntax)
 select = ["E", "F", "I", "UP"]
 
+# These learning-focused modules group imports with explanatory comments.
+[tool.ruff.lint.per-file-ignores]
+"src/chatbot.py" = ["I001"]
+"src/main.py" = ["I001"]
+
 [tool.mypy]
 python_version = "3.14"
 files = ["src", "tests"]

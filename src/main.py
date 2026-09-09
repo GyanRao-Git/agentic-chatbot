@@ -2,7 +2,7 @@
     Interactive command-line entry point for the chatbot.
 """
 import os
-from uuid import uuid7
+import psycopg
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
@@ -12,11 +12,16 @@ from langgraph.checkpoint.postgres import PostgresSaver
 
 from chatbot import ChatState, build_chatbot
 from model_factory import create_chat_model
+from conversations_repository import create_conversation
 
 
 def main() -> None:
     load_dotenv()
-    with PostgresSaver.from_conn_string(os.environ["DATABASE_URL"]) as checkpointer:
+    database_url = os.environ["DATABASE_URL"]
+    with (
+        PostgresSaver.from_conn_string(database_url) as checkpointer,
+        psycopg.connect(database_url, autocommit=True) as database_connection
+    ):
         checkpointer.setup()
         model = create_chat_model(provider = "gemini")
         chatbot = build_chatbot(
@@ -27,7 +32,7 @@ def main() -> None:
             "Conversation ID (leave blank for new):").strip()
 
         if not conversation_id:
-            conversation_id = str(uuid7())
+            conversation_id = str(create_conversation(database_connection))
             print("New conversation with id: ", conversation_id, "\n")
         else:
             print("Resuming conversation with id: ", conversation_id, "\n")
