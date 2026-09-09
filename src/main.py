@@ -39,6 +39,12 @@ def main() -> None:
 
         while True:
             user_input = input("Type here: ").strip()
+
+            # gemini throws error for empty message
+            if not user_input:
+                print("Please enter a message.")
+                continue
+
             if user_input.lower() in {"exit", "quit", "bye"}:
                 break
 
