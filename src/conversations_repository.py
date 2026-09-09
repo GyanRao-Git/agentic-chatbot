@@ -16,3 +16,20 @@ def create_conversation(connection: Connection) -> UUID:
 
     return UUID(str(row[0]))
 
+def conversation_exists(
+    connection: Connection,
+    conversation_id: UUID,
+) -> bool:
+
+    row = connection.execute("""
+        SELECT EXISTS ( 
+            SELECT 1 FROM conversations WHERE id = %s )
+    """, 
+    (conversation_id,)
+    ).fetchone()
+
+    if row is None:
+        raise RuntimeError(f"Could not check conversation_id: {conversation_id} in postgreSQL \n")
+
+    return bool(row[0])
+

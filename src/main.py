@@ -3,6 +3,7 @@
 """
 import os
 import psycopg
+from uuid import UUID
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
@@ -12,7 +13,7 @@ from langgraph.checkpoint.postgres import PostgresSaver
 
 from chatbot import ChatState, build_chatbot
 from model_factory import create_chat_model
-from conversations_repository import create_conversation
+from conversations_repository import create_conversation, conversation_exists
 
 
 def main() -> None:
@@ -35,6 +36,13 @@ def main() -> None:
             conversation_id = str(create_conversation(database_connection))
             print("New conversation with id: ", conversation_id, "\n")
         else:
+            if not conversation_exists(
+                conversation_id=UUID(conversation_id),
+                connection= database_connection
+            ):
+                raise ValueError(
+                    f"Invalid conversation id: {conversation_id} , please validate \n")
+            
             print("Resuming conversation with id: ", conversation_id, "\n")
 
         while True:
