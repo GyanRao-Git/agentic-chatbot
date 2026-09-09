@@ -5,7 +5,9 @@
 from typing import Annotated, Protocol, TypedDict
 
 from langchain_core.messages import BaseMessage
-from langgraph.checkpoint.memory import MemorySaver
+
+# base class for checkpointer type
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
@@ -13,7 +15,7 @@ from langgraph.graph.message import add_messages
 class ChatModel(Protocol):
     """The small model interface the graph needs, including test doubles."""
 
-    def invoke(self, messages: list[BaseMessage]) -> BaseMessage:
+    def invoke(self, messages: list[BaseMessage] , /) -> BaseMessage:
         """Return a model response for the supplied conversation messages."""
 
 
@@ -21,7 +23,7 @@ class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
 
 
-def build_chatbot(model: ChatModel):
+def build_chatbot(model: ChatModel, checkpointer: BaseCheckpointSaver):
     """Build a chatbot graph using the supplied model implementation."""
     graph = StateGraph(ChatState)
 
@@ -33,4 +35,4 @@ def build_chatbot(model: ChatModel):
     graph.add_edge(START, "chat_node")
     graph.add_edge("chat_node", END)
 
-    return graph.compile(checkpointer=MemorySaver())
+    return graph.compile(checkpointer=checkpointer)
