@@ -5,6 +5,7 @@ description = "A backend-focused agentic chatbot built with LangGraph and Google
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "fastapi>=0.141.1",
     "langchain>=1.4.0,<2.0.0",
     "langchain-core>=1.0.0,<2.0.0",
     "langchain-google-genai>=4.4.0,<5.0.0",
@@ -12,10 +13,12 @@ dependencies = [
     "langgraph-checkpoint-postgres>=3.1.2",
     "psycopg[binary,pool]>=3.3.5",
     "python-dotenv>=1.2.1,<2.0.0",
+    "uvicorn>=0.52.4",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "mypy>=1.16,<2.0", # checks type annotations.
     "pytest>=8.0,<10.0", # run automated tests
     "ruff>=0.12,<1.0", # checks formatting, imports, and common Python mistakes.
