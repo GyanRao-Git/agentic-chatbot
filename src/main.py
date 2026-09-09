@@ -36,12 +36,17 @@ def main() -> None:
             conversation_id = str(create_conversation(database_connection))
             print("New conversation with id: ", conversation_id, "\n")
         else:
+            try:
+                conversation_uuid = UUID(conversation_id)
+            except ValueError:
+                print("Conversation ID must be a valid UUID.")
+                return
             if not conversation_exists(
-                conversation_id=UUID(conversation_id),
+                conversation_id=conversation_uuid,
                 connection= database_connection
             ):
-                raise ValueError(
-                    f"Invalid conversation id: {conversation_id} , please validate \n")
+                print(f"Conversation does not exist: {conversation_id} \n")
+                return
             
             print("Resuming conversation with id: ", conversation_id, "\n")
 
