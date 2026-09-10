@@ -8,8 +8,15 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, status
 
 from agents import call_agent
-from conversations_repository import create_conversation
-from models import ConversationResponse, MessageRequest, MessageResponse
+from conversation_history import get_conversation_messages
+from conversations_repository import create_conversation, list_conversations
+from models import (
+    ConversationMessage,
+    ConversationMessagesResponse,
+    ConversationResponse,
+    MessageRequest,
+    MessageResponse,
+)
 
 load_dotenv()
 
@@ -38,6 +45,57 @@ def start_conversation() -> ConversationResponse:
         conversation_id = create_conversation(connection)
 
     return ConversationResponse(conversation_id=conversation_id)
+
+
+# Returns every conversation, with the newest one first.
+@app.get(
+    "/conversations",
+    response_model=list[ConversationResponse],
+)
+def get_conversations() -> list[ConversationResponse]:
+    database_url = os.environ["DATABASE_URL"]
+
+    with psycopg.connect(database_url, autocommit=True) as connection:
+        conversation_ids = list_conversations(connection)
+
+    conversations: list[ConversationResponse] = []
+
+    for conversation_id in conversation_ids:
+        conversation = ConversationResponse(
+            conversation_id=conversation_id,
+        )
+        conversations.append(conversation)
+
+    return conversations
+
+
+# Returns messages already saved by LangGraph for one conversation.
+@app.get(
+    "/conversations/{conversation_id}/messages",
+    response_model=ConversationMessagesResponse,
+)
+def get_messages(conversation_id: UUID) -> ConversationMessagesResponse:
+    try:
+        saved_messages = get_conversation_messages(conversation_id)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+    conversation_messages: list[ConversationMessage] = []
+
+    for message in saved_messages:
+        conversation_message = ConversationMessage(
+            role=message["role"],
+            content=message["content"],
+        )
+        conversation_messages.append(conversation_message)
+
+    return ConversationMessagesResponse(
+        conversation_id=conversation_id,
+        messages=conversation_messages,
+    )
 
 
 # Sends one message to an existing conversation.

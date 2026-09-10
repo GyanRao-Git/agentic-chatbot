@@ -2,3 +2,6 @@
 .venv
 tmp
 __pycache__
+AGENTS.md
+draw.excalidraw
+tests/

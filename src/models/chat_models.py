@@ -11,6 +11,20 @@ class ConversationResponse(BaseModel):
     conversation_id: UUID
 
 
+class ConversationMessage(BaseModel):
+    """One saved message returned to a frontend."""
+
+    role: str
+    content: str
+
+
+class ConversationMessagesResponse(BaseModel):
+    """Saved messages belonging to one conversation."""
+
+    conversation_id: UUID
+    messages: list[ConversationMessage]
+
+
 class MessageRequest(BaseModel):
     """JSON body sent by a frontend when it sends a message."""
 

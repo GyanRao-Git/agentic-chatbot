@@ -1,3 +1,6 @@
+# This file handles SQL operations for records in our conversations table.
+# LangGraph checkpoint messages are handled separately in conversation_history.py.
+
 from uuid import UUID
 
 from psycopg import Connection
@@ -15,6 +18,18 @@ def create_conversation(connection: Connection) -> UUID:
         raise RuntimeError("Could not create a row in Conversations Table \n")
 
     return UUID(str(row[0]))
+
+
+def list_conversations(connection: Connection) -> list[UUID]:
+    """Return conversation IDs, with the newest UUIDv7 first."""
+    rows = connection.execute("""
+        SELECT id
+        FROM conversations
+        ORDER BY id DESC
+    """).fetchall()
+
+    return [UUID(str(row[0])) for row in rows]
+
 
 def conversation_exists(
     connection: Connection,

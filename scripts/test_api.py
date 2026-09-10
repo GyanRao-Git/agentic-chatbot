@@ -21,6 +21,12 @@ conversation_id = conversation_response.json()["conversation_id"]
 print("Conversation ID:", conversation_id)
 
 
+# Check that the new conversation appears in the list.
+conversations_response = requests.get(f"{API_URL}/conversations", timeout=10)
+conversations_response.raise_for_status()
+print("Conversations:", conversations_response.json())
+
+
 # Both messages use the same conversation ID so checkpoint memory is reused.
 first_response = requests.post(
     f"{API_URL}/conversations/{conversation_id}/messages",
@@ -38,3 +44,12 @@ second_response = requests.post(
 )
 second_response.raise_for_status()
 print("Memory answer:", second_response.json()["answer"])
+
+
+# Fetch the messages that LangGraph saved for this conversation.
+messages_response = requests.get(
+    f"{API_URL}/conversations/{conversation_id}/messages",
+    timeout=10,
+)
+messages_response.raise_for_status()
+print("Saved messages:", messages_response.json()["messages"])
