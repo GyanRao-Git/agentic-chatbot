@@ -1,11 +1,17 @@
 """FastAPI chatbot server"""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from uuid import UUID
 
-import psycopg
-from fastapi import FastAPI, HTTPException, Response, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
+from langgraph.checkpoint.postgres import PostgresSaver
+from psycopg import Connection
+from psycopg.rows import DictRow, dict_row
+from psycopg_pool import ConnectionPool
 
 from agents import call_agent
+from chatbot import build_chatbot
 from config import get_database_url
 from conversation_history import (
     delete_conversation_history,
@@ -18,6 +24,7 @@ from conversations_repository import (
     list_conversations,
     update_conversation_title,
 )
+from model_factory import create_chat_model
 from models import (
     ConversationMessage,
     ConversationMessagesResponse,
@@ -27,8 +34,51 @@ from models import (
     MessageResponse,
 )
 
+"""
+    @asynccontextmanager
+    async def lifespan(app):
+        print("STARTUP")
+        yield
+        print("SHUTDOWN")
+"""
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Create shared resources at startup and close them at shutdown."""
+    database_url = get_database_url()
+
+    # A pool keeps database connections ready and lends one to each request.
+    database_pool: ConnectionPool[Connection[DictRow]] = ConnectionPool(
+        conninfo=database_url,
+        kwargs={
+            "autocommit": True,
+            "prepare_threshold": 0,
+            "row_factory": dict_row,
+        },
+        min_size=1,
+        max_size=10,
+        open=False,
+    )
+
+    with database_pool:
+        checkpointer = PostgresSaver(database_pool)
+        model = create_chat_model(provider="gemini")
+        chatbot = build_chatbot(
+            model=model,
+            checkpointer=checkpointer,
+        )
+
+        # Routes retrieve these shared objects through request.app.state.
+        app.state.database_pool = database_pool
+        app.state.checkpointer = checkpointer
+        app.state.chatbot = chatbot
+
+        yield
+
 # FastAPI app that Uvicorn will run.
-app = FastAPI(title="Agentic Chatbot API")
+app = FastAPI(
+    title="Agentic Chatbot API",
+    lifespan=lifespan,
+)
 
 
 # Visiting GET /health confirms that the server is running.
@@ -44,16 +94,16 @@ def health() -> dict[str, str]:
     status_code=status.HTTP_201_CREATED,
 )
 def start_conversation(
+    request: Request,
     conversation_request: ConversationTitleRequest | None = None,
 ) -> ConversationResponse:
-    database_url = get_database_url()
     title = None
 
     if conversation_request is not None:
         title = conversation_request.title
 
-    # This connection exists only while the request is being handled.
-    with psycopg.connect(database_url, autocommit=True) as connection:
+    # The connection returns to the shared pool when this block ends.
+    with request.app.state.database_pool.connection() as connection:
         conversation_id = create_conversation(connection, title)
 
     return ConversationResponse(
@@ -67,10 +117,8 @@ def start_conversation(
     "/conversations",
     response_model=list[ConversationResponse],
 )
-def get_conversations() -> list[ConversationResponse]:
-    database_url = get_database_url()
-
-    with psycopg.connect(database_url, autocommit=True) as connection:
+def get_conversations(request: Request) -> list[ConversationResponse]:
+    with request.app.state.database_pool.connection() as connection:
         conversation_rows = list_conversations(connection)
 
     conversations: list[ConversationResponse] = []
@@ -93,10 +141,9 @@ def get_conversations() -> list[ConversationResponse]:
 def rename_conversation(
     conversation_id: UUID,
     conversation_request: ConversationTitleRequest,
+    request: Request,
 ) -> ConversationResponse:
-    database_url = get_database_url()
-
-    with psycopg.connect(database_url, autocommit=True) as connection:
+    with request.app.state.database_pool.connection() as connection:
         if not conversation_exists(connection, conversation_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -120,17 +167,18 @@ def rename_conversation(
     "/conversations/{conversation_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def remove_conversation(conversation_id: UUID) -> Response:
-    database_url = get_database_url()
-
-    with psycopg.connect(database_url, autocommit=True) as connection:
+def remove_conversation(conversation_id: UUID, request: Request) -> Response:
+    with request.app.state.database_pool.connection() as connection:
         if not conversation_exists(connection, conversation_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Conversation does not exist: {conversation_id}",
             )
 
-        delete_conversation_history(conversation_id)
+        delete_conversation_history(
+            conversation_id=conversation_id,
+            checkpointer=request.app.state.checkpointer,
+        )
         delete_conversation(connection, conversation_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -141,14 +189,22 @@ def remove_conversation(conversation_id: UUID) -> Response:
     "/conversations/{conversation_id}/messages",
     response_model=ConversationMessagesResponse,
 )
-def get_messages(conversation_id: UUID) -> ConversationMessagesResponse:
-    try:
-        saved_messages = get_conversation_messages(conversation_id)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        ) from error
+def get_messages(
+    conversation_id: UUID,
+    request: Request,
+) -> ConversationMessagesResponse:
+    with request.app.state.database_pool.connection() as connection:
+        try:
+            saved_messages = get_conversation_messages(
+                conversation_id=conversation_id,
+                database_connection=connection,
+                checkpointer=request.app.state.checkpointer,
+            )
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(error),
+            ) from error
 
     conversation_messages: list[ConversationMessage] = []
 
@@ -173,17 +229,21 @@ def get_messages(conversation_id: UUID) -> ConversationMessagesResponse:
 def chat(
     conversation_id: UUID,
     message_request: MessageRequest,
+    request: Request,
 ) -> MessageResponse:
-    try:
-        agent_response = call_agent(
-            conversation_id=conversation_id,
-            user_input=message_request.message,
-        )
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        ) from error
+    with request.app.state.database_pool.connection() as connection:
+        try:
+            agent_response = call_agent(
+                conversation_id=conversation_id,
+                user_input=message_request.message,
+                database_connection=connection,
+                chatbot=request.app.state.chatbot,
+            )
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(error),
+            ) from error
 
     return MessageResponse(
         conversation_id=agent_response["conversation_id"],

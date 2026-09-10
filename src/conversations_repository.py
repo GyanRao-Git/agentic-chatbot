@@ -4,10 +4,11 @@
 from uuid import UUID
 
 from psycopg import Connection
+from psycopg.rows import DictRow
 
 
 def create_conversation(
-    connection: Connection,
+    connection: Connection[DictRow],
     title: str | None = None,
 ) -> UUID:
     """
@@ -22,11 +23,11 @@ def create_conversation(
     if row is None:
         raise RuntimeError("Could not create a row in Conversations Table \n")
 
-    return UUID(str(row[0]))
+    return UUID(str(row["id"]))
 
 
 def list_conversations(
-    connection: Connection,
+    connection: Connection[DictRow],
 ) -> list[tuple[UUID, str | None]]:
     """Return conversation IDs and titles, with the newest first."""
     rows = connection.execute("""
@@ -38,14 +39,14 @@ def list_conversations(
     conversations: list[tuple[UUID, str | None]] = []
 
     for row in rows:
-        conversation = (UUID(str(row[0])), row[1])
+        conversation = (UUID(str(row["id"])), row["title"])
         conversations.append(conversation)
 
     return conversations
 
 
 def update_conversation_title(
-    connection: Connection,
+    connection: Connection[DictRow],
     conversation_id: UUID,
     title: str | None,
 ) -> None:
@@ -58,7 +59,7 @@ def update_conversation_title(
 
 
 def delete_conversation(
-    connection: Connection,
+    connection: Connection[DictRow],
     conversation_id: UUID,
 ) -> None:
     """Delete one row from the conversations table."""
@@ -69,13 +70,14 @@ def delete_conversation(
 
 
 def conversation_exists(
-    connection: Connection,
+    connection: Connection[DictRow],
     conversation_id: UUID,
 ) -> bool:
 
     row = connection.execute("""
         SELECT EXISTS ( 
-            SELECT 1 FROM conversations WHERE id = %s )
+            SELECT 1 FROM conversations WHERE id = %s
+        ) AS conversation_exists
     """, 
     (conversation_id,)
     ).fetchone()
@@ -83,5 +85,5 @@ def conversation_exists(
     if row is None:
         raise RuntimeError(f"Could not check conversation_id: {conversation_id} in postgreSQL \n")
 
-    return bool(row[0])
+    return bool(row["conversation_exists"])
 
