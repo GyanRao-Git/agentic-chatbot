@@ -6,9 +6,30 @@ from pydantic import BaseModel, field_validator
 
 
 class ConversationResponse(BaseModel):
-    """Response returned after creating a conversation."""
+    """Conversation data returned to a frontend."""
 
     conversation_id: UUID
+    title: str | None = None
+
+
+class ConversationTitleRequest(BaseModel):
+    """Optional title supplied when creating or renaming a conversation."""
+
+    title: str | None = None
+
+    @field_validator("title")
+    @classmethod
+    def title_must_be_valid(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
+        title = value.strip()
+        if not title:
+            raise ValueError("Title must not be blank.")
+        if len(title) > 100:
+            raise ValueError("Title must not be longer than 100 characters.")
+
+        return title
 
 
 class ConversationMessage(BaseModel):

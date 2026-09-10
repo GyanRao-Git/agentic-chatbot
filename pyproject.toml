@@ -44,6 +44,7 @@ select = ["E", "F", "I", "UP"]
 # These learning-focused modules group imports with explanatory comments.
 [tool.ruff.lint.per-file-ignores]
 "src/chatbot.py" = ["I001"]
+"src/conversation_history.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.14"

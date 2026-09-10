@@ -1,9 +1,9 @@
 """Construction of production chat-model clients."""
 
-import os
-
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+from config import get_gemini_api_key
 
 
 def create_chat_model(provider: str = "gemini") -> BaseChatModel:
@@ -11,9 +11,7 @@ def create_chat_model(provider: str = "gemini") -> BaseChatModel:
     if provider != "gemini":
         raise ValueError(f"Unsupported model provider: {provider}")
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is required to use the Gemini model.")
+    api_key = get_gemini_api_key()
 
     return ChatGoogleGenerativeAI(
         model="gemini-3.6-flash",

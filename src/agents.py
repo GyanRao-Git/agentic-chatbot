@@ -2,25 +2,23 @@
     Runs one chatbot message with checkpointing
 """
 
-import os
 from uuid import UUID
 
 import psycopg
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 
 # Persistent state using PostgreSQL checkpointing
 from langgraph.checkpoint.postgres import PostgresSaver
 
 from chatbot import ChatState, build_chatbot
+from config import get_database_url
 from conversations_repository import conversation_exists
 from model_factory import create_chat_model
 
 
 def call_agent(conversation_id: UUID, user_input: str) -> dict[str, str]:
     """Send one message and return structured data for the API."""
-    load_dotenv()
-    database_url = os.environ["DATABASE_URL"]
+    database_url = get_database_url()
 
     with (
         PostgresSaver.from_conn_string(database_url) as checkpointer,

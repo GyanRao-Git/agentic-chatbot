@@ -18,7 +18,8 @@ def setup_database(database_url: str) -> None:
     ) as connection:
         connection.execute("""
             CREATE TABLE IF NOT EXISTS conversations (
-                id UUID PRIMARY KEY DEFAULT uuidv7()
+                id UUID PRIMARY KEY DEFAULT uuidv7(),
+                title VARCHAR(100)
             )
         """)
 

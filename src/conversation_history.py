@@ -3,24 +3,30 @@
     Because checkpoint table is managed by langGraph (it contains individual messages), we manage the Conversations Table    
 """
 
-import os
 from uuid import UUID
 
 import psycopg
-from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage
 
 # Base class for thread config
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.postgres import PostgresSaver
 
+from config import get_database_url
 from conversations_repository import conversation_exists
+
+
+def delete_conversation_history(conversation_id: UUID) -> None:
+    """Delete all LangGraph checkpoints for one conversation."""
+    database_url = get_database_url()
+
+    with PostgresSaver.from_conn_string(database_url) as checkpointer:
+        checkpointer.delete_thread(str(conversation_id))
 
 
 def get_conversation_messages(conversation_id: UUID) -> list[dict[str, str]]:
     """Read the latest saved messages without calling the model."""
-    load_dotenv()
-    database_url = os.environ["DATABASE_URL"]
+    database_url = get_database_url()
 
     with (
         PostgresSaver.from_conn_string(database_url) as checkpointer,

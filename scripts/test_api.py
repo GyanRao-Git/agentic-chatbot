@@ -14,6 +14,7 @@ print("Health:", health_response.json())
 # Create one conversation and save its UUID.
 conversation_response = requests.post(
     f"{API_URL}/conversations",
+    json={"title": "API test conversation"},
     timeout=10,
 )
 conversation_response.raise_for_status()
@@ -53,3 +54,22 @@ messages_response = requests.get(
 )
 messages_response.raise_for_status()
 print("Saved messages:", messages_response.json()["messages"])
+
+
+# Rename the conversation.
+rename_response = requests.patch(
+    f"{API_URL}/conversations/{conversation_id}",
+    json={"title": "Renamed API test"},
+    timeout=10,
+)
+rename_response.raise_for_status()
+print("Renamed conversation:", rename_response.json())
+
+
+# Delete both the conversation row and its LangGraph history.
+delete_response = requests.delete(
+    f"{API_URL}/conversations/{conversation_id}",
+    timeout=10,
+)
+delete_response.raise_for_status()
+print("Delete status:", delete_response.status_code)
