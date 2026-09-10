@@ -26,8 +26,6 @@ def call_agent(conversation_id: UUID, user_input: str) -> dict[str, str]:
         PostgresSaver.from_conn_string(database_url) as checkpointer,
         psycopg.connect(database_url, autocommit=True) as database_connection,
     ):
-        checkpointer.setup()
-
         if not conversation_exists(
             connection=database_connection,
             conversation_id=conversation_id,

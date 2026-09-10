@@ -21,12 +21,13 @@ dev = [
     "httpx>=0.28.1",
     "mypy>=1.16,<2.0", # checks type annotations.
     "pytest>=8.0,<10.0", # run automated tests
+    "requests>=2.34.2",
     "ruff>=0.12,<1.0", # checks formatting, imports, and common Python mistakes.
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "scripts"]
 
 [tool.ruff]
 line-length = 100
@@ -43,11 +44,11 @@ select = ["E", "F", "I", "UP"]
 # These learning-focused modules group imports with explanatory comments.
 [tool.ruff.lint.per-file-ignores]
 "src/chatbot.py" = ["I001"]
-"src/main.py" = ["I001"]
 
 [tool.mypy]
 python_version = "3.14"
 files = ["src", "tests"]
+mypy_path = ["src", "scripts"]
 warn_unused_configs = true
 check_untyped_defs = true
 no_implicit_optional = true

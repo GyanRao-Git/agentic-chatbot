@@ -23,6 +23,7 @@ dev = [
     { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "requests" },
     { name = "ruff" },
 ]
 
@@ -44,6 +45,7 @@ dev = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mypy", specifier = ">=1.16,<2.0" },
     { name = "pytest", specifier = ">=8.0,<10.0" },
+    { name = "requests", specifier = ">=2.34.2" },
     { name = "ruff", specifier = ">=0.12,<1.0" },
 ]
 
