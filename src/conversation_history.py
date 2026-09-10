@@ -5,7 +5,7 @@
 
 from uuid import UUID
 
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
 # Base class for thread config
 from langchain_core.runnables import RunnableConfig
@@ -28,6 +28,7 @@ def get_conversation_messages(
     conversation_id: UUID,
     database_connection: Connection[DictRow],
     checkpointer: PostgresSaver,
+    debug: bool = False,
 ) -> list[dict[str, str]]:
     """Read the latest saved messages without calling the model."""
     if not conversation_exists(
@@ -51,16 +52,25 @@ def get_conversation_messages(
         "messages",
         [],
     )
-    roles = {
-        "human": "user",
-        "ai": "assistant",
-    }
-
     formatted_messages: list[dict[str, str]] = []
-
+    # We send role too in our structured output for frontend to render with diff graphics , IF FUTURE ME WANRS TO
     for message in saved_messages:
+        if isinstance(message, HumanMessage):
+            role = "user"
+        elif isinstance(message, AIMessage):
+            # A tool request is an internal step, not a final assistant answer.
+            if message.tool_calls or not message.text:
+                continue
+            role = "assistant"
+        elif isinstance(message, ToolMessage):
+            if not debug:
+                continue
+            role = "tool"
+        else:
+            continue
+
         formatted_message = {
-            "role": roles.get(message.type, message.type),
+            "role": role,
             "content": message.text,
         }
         formatted_messages.append(formatted_message)

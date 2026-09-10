@@ -47,6 +47,16 @@ second_response.raise_for_status()
 print("Memory answer:", second_response.json()["answer"])
 
 
+# Ask a live-time question so Gemini must use the new clock tool.
+clock_response = requests.post(
+    f"{API_URL}/conversations/{conversation_id}/messages",
+    json={"message": "What time is it in Asia/Kolkata right now?"},
+    timeout=60,
+)
+clock_response.raise_for_status()
+print("Clock answer:", clock_response.json()["answer"])
+
+
 # Fetch the messages that LangGraph saved for this conversation.
 messages_response = requests.get(
     f"{API_URL}/conversations/{conversation_id}/messages",
@@ -54,6 +64,16 @@ messages_response = requests.get(
 )
 messages_response.raise_for_status()
 print("Saved messages:", messages_response.json()["messages"])
+
+
+# Debug mode also returns the tool result saved inside the checkpoint.
+debug_messages_response = requests.get(
+    f"{API_URL}/conversations/{conversation_id}/messages",
+    params={"debug": True},
+    timeout=10,
+)
+debug_messages_response.raise_for_status()
+print("Debug messages:", debug_messages_response.json()["messages"])
 
 
 # Rename the conversation.

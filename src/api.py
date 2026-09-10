@@ -33,6 +33,7 @@ from models import (
     MessageRequest,
     MessageResponse,
 )
+from tools import CHAT_TOOLS
 
 """
     @asynccontextmanager
@@ -62,9 +63,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     with database_pool:
         checkpointer = PostgresSaver(database_pool)
         model = create_chat_model(provider="gemini")
+
+        # bind_tools is a method of BaseChatModel, It gives Gemini their names, descriptions, and input structure.
+        model_with_tools = model.bind_tools(CHAT_TOOLS)
         chatbot = build_chatbot(
-            model=model,
+            model=model_with_tools,
             checkpointer=checkpointer,
+            tools=CHAT_TOOLS,
         )
 
         # Routes retrieve these shared objects through request.app.state.
@@ -192,6 +197,7 @@ def remove_conversation(conversation_id: UUID, request: Request) -> Response:
 def get_messages(
     conversation_id: UUID,
     request: Request,
+    debug: bool = False,
 ) -> ConversationMessagesResponse:
     with request.app.state.database_pool.connection() as connection:
         try:
@@ -199,6 +205,7 @@ def get_messages(
                 conversation_id=conversation_id,
                 database_connection=connection,
                 checkpointer=request.app.state.checkpointer,
+                debug=debug,
             )
         except ValueError as error:
             raise HTTPException(

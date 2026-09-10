@@ -13,6 +13,7 @@ dependencies = [
     "langgraph-checkpoint-postgres>=3.1.2",
     "psycopg[binary,pool]>=3.3.5",
     "python-dotenv>=1.2.1,<2.0.0",
+    "tzdata>=2026.3",
     "uvicorn>=0.52.4",
 ]
 
