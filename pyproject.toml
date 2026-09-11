@@ -42,6 +42,9 @@ target-version = "py314"
 # UP = pyupgrade (modern Python syntax)
 select = ["E", "F", "I", "UP"]
 
+# Learning comments may intentionally appear between imports or use long lines.
+ignore = ["E402", "E501"]
+
 # These learning-focused modules group imports with explanatory comments.
 [tool.ruff.lint.per-file-ignores]
 "src/chatbot.py" = ["I001"]

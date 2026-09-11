@@ -7,8 +7,13 @@ from langchain_core.tools import BaseTool, tool
 
 
 @tool
-def get_current_datetime(timezone: str = "UTC") -> str:
-    """Return the live date and time for an IANA timezone such as Asia/Kolkata."""
+def get_current_datetime(timezone: str = "Asia/Kolkata") -> str:
+    """
+        Return the live date and time for an IANA timezone.
+
+        Infer the IANA timezone from the location in the user's message.
+        For example, use Europe/London for London and America/New_York for New York.
+    """
     try:
         selected_timezone = ZoneInfo(timezone)
     except ZoneInfoNotFoundError:

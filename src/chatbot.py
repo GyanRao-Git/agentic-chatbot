@@ -4,7 +4,7 @@
 
 from typing import Annotated, Protocol, TypedDict
 
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, SystemMessage
 # Base class for all LangChain tools
 from langchain_core.tools import BaseTool
 
@@ -12,6 +12,9 @@ from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode, tools_condition
+
+from prompts import SYSTEM_PROMPT
 
 """
     LLM
@@ -31,14 +34,26 @@ from langgraph.graph.message import add_messages
 
     AND tools_condition provides that routing logic.
 """
-from langgraph.prebuilt import ToolNode, tools_condition
+
 
 # protocol tells typechecker if the object class passed has invoke function or not
 class ChatModel(Protocol):
     """The small model interface the graph needs, including test doubles."""
 
-    def invoke(self, messages: list[BaseMessage] , /) -> BaseMessage:
+    """
+        List of messages like this
+        [
+            SystemMessage(...),
+            HumanMessage(...),
+            AIMessage(...),
+            ToolMessage(...),
+        ]
+
+    """
+
+    def invoke(self, messages: list[BaseMessage], /) -> BaseMessage:
         """Return a model response for the supplied conversation messages."""
+        ...
 
 
 class ChatState(TypedDict):
@@ -54,7 +69,11 @@ def build_chatbot(
     graph = StateGraph(ChatState)
 
     def chat_node(state: ChatState) -> dict[str, list[BaseMessage]]:
-        response = model.invoke(state["messages"])
+        complete_model_messages = [
+            SystemMessage(content=SYSTEM_PROMPT),
+            *state["messages"],
+        ]
+        response = model.invoke(complete_model_messages)
         return {"messages": [response]}
 
     graph.add_node("chat_node", chat_node)
