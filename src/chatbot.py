@@ -16,6 +16,9 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 from prompts import SYSTEM_PROMPT
 
+
+TOOL_ERROR_MESSAGE = "The tool could not complete the request."
+
 """
     LLM
     ↓
@@ -77,7 +80,11 @@ def build_chatbot(
         return {"messages": [response]}
 
     graph.add_node("chat_node", chat_node)
-    graph.add_node("tools", ToolNode(tools))
+    # Tool errors become ToolMessages so the model can explain the failure.
+    graph.add_node(
+        "tools",
+        ToolNode(tools, handle_tool_errors=TOOL_ERROR_MESSAGE),
+    )
     graph.add_edge(START, "chat_node")
 
     # Tool calls go to ToolNode. Normal model responses end the graph.
