@@ -2,6 +2,7 @@
     Runs one chatbot message with checkpointing
 """
 
+import logging
 from uuid import UUID
 
 from langchain_core.messages import HumanMessage
@@ -9,22 +10,32 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from psycopg import Connection
 from psycopg.rows import DictRow
+from psycopg_pool import ConnectionPool
 
 from chatbot import ChatState
 from conversations_repository import conversation_exists
+from exceptions import AgentExecutionError
+
+
+logger = logging.getLogger(__name__)
 
 
 def call_agent(
     conversation_id: UUID,
     user_input: str,
-    database_connection: Connection[DictRow],
+    database_pool: ConnectionPool[Connection[DictRow]],
     chatbot: CompiledStateGraph,
 ) -> dict[str, str]:
     """Send one message and return structured data for the API."""
-    if not conversation_exists(
-        connection=database_connection,
-        conversation_id=conversation_id,
-    ):
+    # Borrow a connection only for this quick check. It returns to the pool
+    # before the slow model call, so Gemini latency does not block other requests.
+    with database_pool.connection() as connection:
+        conversation_found = conversation_exists(
+            connection=connection,
+            conversation_id=conversation_id,
+        )
+
+    if not conversation_found:
         raise ValueError(f"Conversation does not exist: {conversation_id}")
 
     # do not append, checkpointer will append, only send new message to avoid duplicates
@@ -36,9 +47,20 @@ def call_agent(
             "thread_id": str(conversation_id)
         }
     }
-    final_state = chatbot.invoke(state, config=config)
+    try:
+        final_state = chatbot.invoke(state, config=config)
+        answer = final_state["messages"][-1].text
+    except Exception as error:
+        # Do not log the user's message or the third-party error text because
+        # either could contain private information.
+        logger.error(
+            "Agent execution failed for conversation_id=%s; error_type=%s",
+            conversation_id,
+            type(error).__name__,
+        )
+        raise AgentExecutionError() from error
 
     return {
         "conversation_id": str(conversation_id),
-        "answer": final_state["messages"][-1].text,
+        "answer": answer,
     }

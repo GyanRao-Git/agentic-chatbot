@@ -24,6 +24,7 @@ from conversations_repository import (
     list_conversations,
     update_conversation_title,
 )
+from exceptions import AgentExecutionError
 from model_factory import create_chat_model
 from models import (
     ConversationMessage,
@@ -254,19 +255,25 @@ def chat(
     message_request: MessageRequest,
     request: Request,
 ) -> MessageResponse:
-    with request.app.state.database_pool.connection() as connection:
-        try:
-            agent_response = call_agent(
-                conversation_id=conversation_id,
-                user_input=message_request.message,
-                database_connection=connection,
-                chatbot=request.app.state.chatbot,
-            )
-        except ValueError as error:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(error),
-            ) from error
+    # call_agent borrows its own short-lived connection, so the Gemini call
+    # below does not keep a pooled connection checked out.
+    try:
+        agent_response = call_agent(
+            conversation_id=conversation_id,
+            user_input=message_request.message,
+            database_pool=request.app.state.database_pool,
+            chatbot=request.app.state.chatbot,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+    except AgentExecutionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
 
     return MessageResponse(
         conversation_id=agent_response["conversation_id"],
