@@ -29,7 +29,9 @@ def get_conversation_messages(
     database_connection: Connection[DictRow],
     checkpointer: PostgresSaver,
     debug: bool = False,
-) -> list[dict[str, str]]:
+    limit: int = 50,
+    before: int | None = None,
+) -> tuple[list[dict[str, str]], int | None]:
     """Read the latest saved messages without calling the model."""
     if not conversation_exists(
         connection=database_connection,
@@ -46,7 +48,7 @@ def get_conversation_messages(
 
     # A new conversation has no checkpoint until its first message is sent.
     if checkpoint is None:
-        return []
+        return [], None
 
     saved_messages: list[BaseMessage] = checkpoint["channel_values"].get(
         "messages",
@@ -75,4 +77,18 @@ def get_conversation_messages(
         }
         formatted_messages.append(formatted_message)
 
-    return formatted_messages
+    # "before" is the exclusive end position in the filtered message list.
+    # The newest page uses the total message count as its end position.
+    end_position = len(formatted_messages)
+
+    if before is not None:
+        end_position = min(before, len(formatted_messages))
+
+    start_position = max(0, end_position - limit)
+    paginated_messages = formatted_messages[start_position:end_position]
+
+    next_before = None
+    if start_position > 0:
+        next_before = start_position
+
+    return paginated_messages, next_before

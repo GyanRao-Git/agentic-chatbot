@@ -44,6 +44,7 @@ class ConversationMessagesResponse(BaseModel):
 
     conversation_id: UUID
     messages: list[ConversationMessage]
+    next_before: int | None = None
 
 
 class MessageRequest(BaseModel):

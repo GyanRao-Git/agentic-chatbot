@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg import Connection
 from psycopg.rows import DictRow, dict_row
@@ -122,9 +122,17 @@ def start_conversation(
     "/conversations",
     response_model=list[ConversationResponse],
 )
-def get_conversations(request: Request) -> list[ConversationResponse]:
+def get_conversations(
+    request: Request,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> list[ConversationResponse]:
     with request.app.state.database_pool.connection() as connection:
-        conversation_rows = list_conversations(connection)
+        conversation_rows = list_conversations(
+            connection,
+            limit=limit,
+            offset=offset,
+        )
 
     conversations: list[ConversationResponse] = []
 
@@ -198,14 +206,18 @@ def get_messages(
     conversation_id: UUID,
     request: Request,
     debug: bool = False,
+    limit: int = Query(default=50, ge=1, le=100),
+    before: int | None = Query(default=None, ge=0),
 ) -> ConversationMessagesResponse:
     with request.app.state.database_pool.connection() as connection:
         try:
-            saved_messages = get_conversation_messages(
+            saved_messages, next_before = get_conversation_messages(
                 conversation_id=conversation_id,
                 database_connection=connection,
                 checkpointer=request.app.state.checkpointer,
                 debug=debug,
+                limit=limit,
+                before=before,
             )
         except ValueError as error:
             raise HTTPException(
@@ -225,6 +237,7 @@ def get_messages(
     return ConversationMessagesResponse(
         conversation_id=conversation_id,
         messages=conversation_messages,
+        next_before=next_before,
     )
 
 

@@ -28,13 +28,17 @@ def create_conversation(
 
 def list_conversations(
     connection: Connection[DictRow],
+    limit: int = 20,
+    offset: int = 0,
 ) -> list[tuple[UUID, str | None]]:
     """Return conversation IDs and titles, with the newest first."""
     rows = connection.execute("""
         SELECT id, title
         FROM conversations
         ORDER BY id DESC
-    """).fetchall()
+        LIMIT %s
+        OFFSET %s
+    """, (limit, offset)).fetchall()
 
     conversations: list[tuple[UUID, str | None]] = []
 
