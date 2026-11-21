@@ -12,7 +12,7 @@ from psycopg_pool import ConnectionPool
 
 from agents import call_agent
 from chatbot import build_chatbot
-from config import get_database_url
+from config import get_database_pool_limits, get_database_url
 from conversation_history import (
     delete_conversation_history,
     get_conversation_messages,
@@ -46,17 +46,20 @@ from tools import CHAT_TOOLS
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Create shared resources at startup and close them at shutdown."""
     database_url = get_database_url()
+    # Pool sizes come from DB_POOL_MIN_SIZE and DB_POOL_MAX_SIZE, with defaults.
+    min_size, max_size = get_database_pool_limits()
 
     # A pool keeps database connections ready and lends one to each request.
     database_pool: ConnectionPool[Connection[DictRow]] = ConnectionPool(
         conninfo=database_url,
+        # kwargs are settings applied to each new connection pool creates
         kwargs={
             "autocommit": True,
             "prepare_threshold": 0,
             "row_factory": dict_row,
         },
-        min_size=1,
-        max_size=10,
+        min_size=min_size,
+        max_size=max_size,
         open=False,
     )
 
