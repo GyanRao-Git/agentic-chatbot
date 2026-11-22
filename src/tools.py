@@ -1,11 +1,14 @@
 """Small tools that the chatbot model is allowed to call."""
 
+import logging
 from typing import Literal
 
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from langchain_core.tools import BaseTool, tool
+
+logger = logging.getLogger(__name__)
 
 
 @tool
@@ -19,6 +22,7 @@ def get_current_datetime(timezone: str = "Asia/Kolkata") -> str:
     try:
         selected_timezone = ZoneInfo(timezone)
     except ZoneInfoNotFoundError:
+        logger.warning("unknown timezone timezone=%s", timezone)
         return (
             f"Unknown timezone: {timezone}. "
             "Use an IANA timezone such as Asia/Kolkata or UTC."
@@ -58,9 +62,11 @@ def calculator_tool(operation: Literal["add", "subtract", "multiply", "divide"],
         res =  num1*num2
     elif op == "divide":
         if num2 == 0:
+            logger.warning("tool rejected name=calculator_tool reason=divide_by_zero")
             return "Cannot divide by zero"
         res =  num1/num2
     else:
+        logger.warning("tool rejected name=calculator_tool reason=unsupported_operation")
         return "Unsupported operation"
 
     return f"Calculation result: {res}"

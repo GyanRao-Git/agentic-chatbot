@@ -69,3 +69,34 @@ def get_database_pool_limits() -> tuple[int, int]:
         )
 
     return min_size, max_size
+
+
+def get_log_user_text() -> bool:
+    """Return True only when LOG_USER_TEXT is on. Use it for local debugging only."""
+    raw_value = os.getenv("LOG_USER_TEXT", "false").strip().lower()
+
+    if raw_value in ("true", "1", "yes"):
+        return True
+    if raw_value in ("", "false", "0", "no"):
+        return False
+
+    raise RuntimeError("LOG_USER_TEXT must be true or false.")
+
+
+# The model used when a request does not name one.
+DEFAULT_MODEL_NAME = "gemini-3.6-flash"
+
+# Models a client may choose. Any other name is rejected.
+ALLOWED_MODEL_NAMES = (DEFAULT_MODEL_NAME, "gemini-2.5-flash")
+
+
+# Default number of daily log files to keep when LOG_RETENTION_DAYS is not set.
+DEFAULT_LOG_RETENTION_DAYS = 7
+
+
+def get_log_retention_days() -> int:
+    """Return how many rotated daily log files to keep."""
+    return _read_positive_int_env(
+        "LOG_RETENTION_DAYS",
+        DEFAULT_LOG_RETENTION_DAYS,
+    )

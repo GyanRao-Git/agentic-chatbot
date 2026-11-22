@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import MagicMock, patch
 from uuid import UUID
 
@@ -6,6 +7,7 @@ from fastapi.testclient import TestClient
 from psycopg.rows import dict_row
 
 from api import app
+from config import DEFAULT_MODEL_NAME
 from exceptions import AgentExecutionError
 from tools import CHAT_TOOLS
 
@@ -33,6 +35,8 @@ def test_lifespan_creates_shared_resources() -> None:
     with (
         patch("api.get_database_url", return_value="postgresql://test"),
         patch("api.get_database_pool_limits", return_value=(2, 5)),
+        # Stop the test from creating real log files in the logs/ folder.
+        patch("api.configure_logging"),
         patch("api.ConnectionPool", return_value=database_pool) as pool_mock,
         patch("api.PostgresSaver", return_value=checkpointer) as checkpointer_mock,
         patch("api.create_chat_model", return_value=model) as model_mock,
@@ -43,7 +47,7 @@ def test_lifespan_creates_shared_resources() -> None:
 
         assert app.state.database_pool is database_pool
         assert app.state.checkpointer is checkpointer
-        assert app.state.chatbot is chatbot
+        assert app.state.chatbots[DEFAULT_MODEL_NAME] is chatbot
 
     assert response.status_code == 200
     pool_mock.assert_called_once_with(
@@ -60,13 +64,23 @@ def test_lifespan_creates_shared_resources() -> None:
     database_pool.__enter__.assert_called_once_with()
     database_pool.__exit__.assert_called_once()
     checkpointer_mock.assert_called_once_with(database_pool)
-    model_mock.assert_called_once_with(provider="gemini")
-    model.bind_tools.assert_called_once_with(CHAT_TOOLS)
-    chatbot_mock.assert_called_once_with(
+    model_mock.assert_any_call(provider="gemini", model_name=DEFAULT_MODEL_NAME)
+    model.bind_tools.assert_called_with(CHAT_TOOLS)
+    chatbot_mock.assert_called_with(
         model=model_with_tools,
         checkpointer=checkpointer,
         tools=CHAT_TOOLS,
     )
+
+
+# Checks that each request writes one "request finished" log line.
+def test_request_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+    client = TestClient(app)
+
+    with caplog.at_level(logging.INFO, logger="api"):
+        client.get("/health")
+
+    assert "request finished method=GET path=/health status=200" in caplog.text
 
 
 def test_health_endpoint() -> None:
@@ -452,7 +466,7 @@ def test_chat_endpoint_returns_structured_agent_response() -> None:
     connection = MagicMock()
     use_database_connection(connection)
     chatbot = MagicMock()
-    app.state.chatbot = chatbot
+    app.state.chatbots = {DEFAULT_MODEL_NAME: chatbot}
 
     with patch(
         "api.call_agent",
@@ -476,6 +490,7 @@ def test_chat_endpoint_returns_structured_agent_response() -> None:
         user_input="Hello",
         database_pool=app.state.database_pool,
         chatbot=chatbot,
+        model_name=DEFAULT_MODEL_NAME,
     )
 
 
@@ -484,7 +499,7 @@ def test_chat_endpoint_returns_not_found_for_unknown_conversation() -> None:
     conversation_id = UUID("019535d9-3df7-79fb-b466-fa907fa17f9e")
     connection = MagicMock()
     use_database_connection(connection)
-    app.state.chatbot = MagicMock()
+    app.state.chatbots = {DEFAULT_MODEL_NAME: MagicMock()}
 
     with patch(
         "api.call_agent",
@@ -503,7 +518,8 @@ def test_chat_endpoint_returns_not_found_for_unknown_conversation() -> None:
         conversation_id=conversation_id,
         user_input="Hello",
         database_pool=app.state.database_pool,
-        chatbot=app.state.chatbot,
+        chatbot=app.state.chatbots[DEFAULT_MODEL_NAME],
+        model_name=DEFAULT_MODEL_NAME,
     )
 
 
@@ -512,7 +528,7 @@ def test_chat_endpoint_returns_safe_error_when_agent_fails() -> None:
     conversation_id = UUID("019535d9-3df7-79fb-b466-fa907fa17f9e")
     connection = MagicMock()
     use_database_connection(connection)
-    app.state.chatbot = MagicMock()
+    app.state.chatbots = {DEFAULT_MODEL_NAME: MagicMock()}
 
     with patch(
         "api.call_agent",

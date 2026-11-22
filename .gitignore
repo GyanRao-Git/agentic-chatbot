@@ -1,6 +1,7 @@
 .env
 .venv
 tmp
+logs/
 __pycache__
 AGENTS.md
 draw.excalidraw

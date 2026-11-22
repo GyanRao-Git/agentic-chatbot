@@ -1,10 +1,13 @@
 # This file handles SQL operations for records in our conversations table.
 # LangGraph checkpoint messages are handled separately in conversation_history.py.
 
+import logging
 from uuid import UUID
 
 from psycopg import Connection
 from psycopg.rows import DictRow
+
+logger = logging.getLogger(__name__)
 
 
 def create_conversation(
@@ -21,6 +24,7 @@ def create_conversation(
     """, (title,)).fetchone()
 
     if row is None:
+        logger.error("insert into conversations returned no row")
         raise RuntimeError("Could not create a row in Conversations Table \n")
 
     return UUID(str(row["id"]))
@@ -87,6 +91,7 @@ def conversation_exists(
     ).fetchone()
 
     if row is None:
+        logger.error("existence check returned no row conversation_id=%s", conversation_id)
         raise RuntimeError(f"Could not check conversation_id: {conversation_id} in postgreSQL \n")
 
     return bool(row["conversation_exists"])

@@ -2,6 +2,7 @@
     LangGraph chatbot construction and state definitions.
 """
 
+import logging
 from typing import Annotated, Protocol, TypedDict
 
 from langchain_core.messages import BaseMessage, SystemMessage
@@ -18,6 +19,15 @@ from prompts import SYSTEM_PROMPT
 
 
 TOOL_ERROR_MESSAGE = "The tool could not complete the request."
+
+logger = logging.getLogger(__name__)
+
+
+# ToolNode calls this with the exception. The returned text becomes the ToolMessage.
+def log_tool_error(error: Exception) -> str:
+    """Log a tool failure, then return the message the model will see."""
+    logger.warning("tool failed error_type=%s", type(error).__name__)
+    return TOOL_ERROR_MESSAGE
 
 """
     LLM
@@ -83,7 +93,7 @@ def build_chatbot(
     # Tool errors become ToolMessages so the model can explain the failure.
     graph.add_node(
         "tools",
-        ToolNode(tools, handle_tool_errors=TOOL_ERROR_MESSAGE),
+        ToolNode(tools, handle_tool_errors=log_tool_error),
     )
     graph.add_edge(START, "chat_node")
 

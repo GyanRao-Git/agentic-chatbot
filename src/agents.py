@@ -3,6 +3,7 @@
 """
 
 import logging
+import time
 from uuid import UUID
 
 from langchain_core.messages import HumanMessage
@@ -13,6 +14,7 @@ from psycopg.rows import DictRow
 from psycopg_pool import ConnectionPool
 
 from chatbot import ChatState
+from config import DEFAULT_MODEL_NAME
 from conversations_repository import conversation_exists
 from exceptions import AgentExecutionError
 
@@ -25,6 +27,7 @@ def call_agent(
     user_input: str,
     database_pool: ConnectionPool[Connection[DictRow]],
     chatbot: CompiledStateGraph,
+    model_name: str = DEFAULT_MODEL_NAME,
 ) -> dict[str, str]:
     """Send one message and return structured data for the API."""
     # Borrow a connection only for this quick check. It returns to the pool
@@ -37,6 +40,9 @@ def call_agent(
 
     if not conversation_found:
         raise ValueError(f"Conversation does not exist: {conversation_id}")
+
+    logger.info("agent turn started conversation_id=%s model=%s", conversation_id, model_name)
+    started = time.perf_counter()
 
     # do not append, checkpointer will append, only send new message to avoid duplicates
     state: ChatState = {
@@ -59,6 +65,14 @@ def call_agent(
             type(error).__name__,
         )
         raise AgentExecutionError() from error
+
+    duration_ms = (time.perf_counter() - started) * 1000
+    logger.info(
+        "agent turn finished conversation_id=%s model=%s duration_ms=%.1f",
+        conversation_id,
+        model_name,
+        duration_ms,
+    )
 
     return {
         "conversation_id": str(conversation_id),

@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
+from config import ALLOWED_MODEL_NAMES
+
 
 class ConversationResponse(BaseModel):
     """Conversation data returned to a frontend."""
@@ -51,6 +53,8 @@ class MessageRequest(BaseModel):
     """JSON body sent by a frontend when it sends a message."""
 
     message: str
+    # Optional. When missing, the server uses the default model.
+    model: str | None = None
 
     @field_validator("message")
     @classmethod
@@ -59,6 +63,13 @@ class MessageRequest(BaseModel):
         if not message:
             raise ValueError("Message must not be empty.")
         return message
+
+    @field_validator("model")
+    @classmethod
+    def model_must_be_allowed(cls, value: str | None) -> str | None:
+        if value is not None and value not in ALLOWED_MODEL_NAMES:
+            raise ValueError(f"Model must be one of: {', '.join(ALLOWED_MODEL_NAMES)}")
+        return value
 
 
 class MessageResponse(BaseModel):

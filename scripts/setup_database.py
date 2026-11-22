@@ -1,10 +1,13 @@
 """Create the application and LangGraph database tables."""
 
+import logging
 import os
 
 import psycopg
 from dotenv import load_dotenv
 from langgraph.checkpoint.postgres import PostgresSaver
+
+logger = logging.getLogger(__name__)
 
 
 def setup_database(database_url: str) -> None:
@@ -30,6 +33,8 @@ def setup_database(database_url: str) -> None:
 
 def main() -> None:
     """Load local configuration and prepare the database."""
+    # The script runs on its own, so it sets up simple console logging here.
+    logging.basicConfig(level=logging.INFO)
     load_dotenv()
     database_url = os.getenv("DATABASE_URL")
 
@@ -37,7 +42,7 @@ def main() -> None:
         raise RuntimeError("DATABASE_URL is required to set up the database.")
 
     setup_database(database_url)
-    print("Database setup completed.")
+    logger.info("Database setup completed.")
 
 
 if __name__ == "__main__":
